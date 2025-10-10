@@ -2,6 +2,8 @@ package ru.practicum.shareit.user.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import ru.practicum.shareit.exception.EmailAlreadyExistsException;
+import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.user.mapper.UserMapper;
 import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.model.User;
@@ -19,19 +21,7 @@ public class UserServiceIml implements UserService {
 
     @Override
     public UserDto createUser(UserDto userDto) {
-        if (userDto.getEmail() == null || userDto.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Email обязателен");
-        }
-
-        if (!isValidEmail(userDto.getEmail())) {
-            throw new IllegalArgumentException("Неверный формат email");
-        }
-
-        boolean emailExists = users.values().stream()
-                .anyMatch(user -> user.getEmail().equalsIgnoreCase(userDto.getEmail()));
-        if (emailExists) {
-            throw new IllegalArgumentException("Пользователь с таким email уже существует");
-        }
+        checkEmailExists(userDto.getEmail(), null);
 
         User user = UserMapper.toUser(userDto);
         user.setId(idCounter.getAndIncrement());
@@ -43,28 +33,16 @@ public class UserServiceIml implements UserService {
     public UserDto updateUser(Long userId, UserDto userDto) {
         User existingUser = users.get(userId);
         if (existingUser == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("Пользователь не найден");
         }
 
         if (userDto.getEmail() != null && !userDto.getEmail().isBlank()) {
-            if (!isValidEmail(userDto.getEmail())) {
-                throw new IllegalArgumentException("Неверный формат email");
-            }
-
-            boolean emailExists = users.values().stream()
-                    .filter(user -> !user.getId().equals(userId))
-                    .anyMatch(user -> user.getEmail().equalsIgnoreCase(userDto.getEmail()));
-            if (emailExists) {
-                throw new IllegalArgumentException("Пользователь с таким email уже существует");
-            }
+            checkEmailExists(userDto.getEmail(), userId);
             existingUser.setEmail(userDto.getEmail());
         }
 
         if (userDto.getName() != null) {
             existingUser.setName(userDto.getName());
-        }
-        if (userDto.getEmail() != null) {
-            existingUser.setEmail(userDto.getEmail());
         }
 
         users.put(userId, existingUser);
@@ -75,7 +53,7 @@ public class UserServiceIml implements UserService {
     public UserDto getUserById(Long userId) {
         User user = users.get(userId);
         if (user == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("Пользователь не найден");
         }
         return UserMapper.toUserDto(user);
     }
@@ -84,7 +62,7 @@ public class UserServiceIml implements UserService {
     public User getUserEntityById(Long userId) {
         User user = users.get(userId);
         if (user == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("Пользователь не найден");
         }
         return user;
     }
@@ -101,11 +79,14 @@ public class UserServiceIml implements UserService {
         users.remove(userId);
     }
 
-    private boolean isValidEmail(String email) {
-        return email != null &&
-                email.contains("@") &&
-                email.indexOf("@") < email.lastIndexOf(".") &&
-                email.length() > 5;
+    private void checkEmailExists(String email, Long userId) {
+        boolean emailExists = users.values().stream()
+                .filter(user -> userId == null || !user.getId().equals(userId))
+                .anyMatch(user -> user.getEmail().equalsIgnoreCase(email));
+
+        if (emailExists) {
+            throw new EmailAlreadyExistsException("Пользователь с таким email уже существует");
+        }
     }
 }
 

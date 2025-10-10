@@ -8,9 +8,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ErrorHandler {
 
-    @ExceptionHandler(RuntimeException.class)
+    @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse handleNotFoundException(RuntimeException e) {
+    public ErrorResponse handleNotFoundException(NotFoundException e) {
         return new ErrorResponse(e.getMessage());
     }
 
@@ -22,6 +22,12 @@ public class ErrorHandler {
                         e.getMessage().contains("email") && e.getMessage().contains("существует"))) {
             throw new ConflictException(e.getMessage());
         }
+        return new ErrorResponse(e.getMessage());
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleEmailAlreadyExistsException(EmailAlreadyExistsException e) {
         return new ErrorResponse(e.getMessage());
     }
 

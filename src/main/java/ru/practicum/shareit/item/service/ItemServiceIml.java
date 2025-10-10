@@ -3,6 +3,7 @@ package ru.practicum.shareit.item.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
@@ -25,19 +26,6 @@ public class ItemServiceIml implements ItemService {
 
     @Override
     public ItemDto createItem(ItemDto itemDto, Long ownerId) {
-
-        if (itemDto.getName() == null || itemDto.getName().isBlank()) {
-            throw new IllegalArgumentException("Название предмета обязательно");
-        }
-
-        if (itemDto.getDescription() == null || itemDto.getDescription().isBlank()) {
-            throw new IllegalArgumentException("Описание предмета обязательно");
-        }
-
-        if (itemDto.getAvailable() == null) {
-            throw new IllegalArgumentException("Поле available обязательно");
-        }
-
         User owner = userService.getUserEntityById(ownerId);
         Item item = ItemMapper.toItem(itemDto, owner);
         item.setId(idCounter.getAndIncrement());
@@ -49,11 +37,11 @@ public class ItemServiceIml implements ItemService {
     public ItemDto updateItem(Long itemId, ItemDto itemDto, Long ownerId) {
         Item existingItem = items.get(itemId);
         if (existingItem == null) {
-            throw new RuntimeException("Продукт не найден");
+            throw new NotFoundException("Продукт не найден");
         }
 
         if (!existingItem.getOwner().getId().equals(ownerId)) {
-            throw new RuntimeException("Только собственник может обновлять продукт");
+            throw new NotFoundException("Только собственник может обновлять продукт");
         }
 
         ItemMapper.updateItemFromDto(itemDto, existingItem);
@@ -67,14 +55,18 @@ public class ItemServiceIml implements ItemService {
     public ItemDto getItemById(Long itemId) {
         Item item = items.get(itemId);
         if (item == null) {
-            throw new RuntimeException("ПРодукт не найден");
+            throw new NotFoundException("ПРодукт не найден");
         }
         return ItemMapper.toItemDto(item);
     }
 
     @Override
     public Item getItemEntityById(Long itemId) {
-        return null;
+        Item item = items.get(itemId);
+        if (item == null) {
+            throw new NotFoundException("Продукт не найден");
+        }
+        return item;
     }
 
     @Override
@@ -93,9 +85,9 @@ public class ItemServiceIml implements ItemService {
 
         String searchText = text.toLowerCase();
         return items.values().stream()
-                .filter(item -> item.getAvailable() != null && item.getAvailable())
-                .filter(item -> (item.getName() != null && item.getName().toLowerCase().contains(searchText)) ||
-                        (item.getDescription() != null && item.getDescription().toLowerCase().contains(searchText)))
+                .filter(Item::getAvailable)
+                .filter(item -> item.getName().toLowerCase().contains(searchText) ||
+                        item.getDescription().toLowerCase().contains(searchText))
                 .map(ItemMapper::toItemDto)
                 .collect(Collectors.toList());
     }
