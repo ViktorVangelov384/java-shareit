@@ -54,7 +54,6 @@ public class ItemRequestServiceIml implements ItemRequestService {
         List<ItemRequest> requests = itemRequestRepository.findByRequestorIdOrderByCreatedDesc(requestorId);
         List<Long> requestIds = requests.stream().map(ItemRequest::getId).collect(Collectors.toList());
 
-        // Получаем все предметы для этих запросов
         Map<Long, List<ItemDto>> itemsByRequest = getItemsByRequestIds(requestIds);
 
         return requests.stream()
@@ -77,7 +76,6 @@ public class ItemRequestServiceIml implements ItemRequestService {
         List<ItemRequest> requests = itemRequestRepository.findByRequestorIdNotOrderByCreatedDesc(userId, pageable);
         List<Long> requestIds = requests.stream().map(ItemRequest::getId).collect(Collectors.toList());
 
-        // Получаем все предметы для этих запросов
         Map<Long, List<ItemDto>> itemsByRequest = getItemsByRequestIds(requestIds);
 
         return requests.stream()
@@ -95,7 +93,6 @@ public class ItemRequestServiceIml implements ItemRequestService {
         ItemRequest itemRequest = itemRequestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Запрос не найден"));
 
-        // Получаем предметы для этого запроса
         List<ItemDto> items = getItemsByRequestId(requestId);
 
         return ItemRequestMapper.toItemRequestDto(itemRequest, items);

@@ -63,7 +63,7 @@ public class ErrorHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ErrorResponse handleAccessDeniedException(AccessDeniedException e) {
+    public ErrorResponse handleAccessDeniedException(final AccessDeniedException e) {
         return new ErrorResponse(e.getMessage());
     }
 

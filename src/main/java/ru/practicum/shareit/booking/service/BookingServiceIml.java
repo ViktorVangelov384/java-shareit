@@ -1,7 +1,5 @@
 package ru.practicum.shareit.booking.service;
 
-
-import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -15,6 +13,7 @@ import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.repository.BookingRepository;
 import ru.practicum.shareit.exception.AccessDeniedException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.repository.ItemRepository;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.repository.UserRepository;
@@ -61,12 +60,16 @@ public class BookingServiceIml implements BookingService {
     @Override
     @Transactional
     public BookingResponseDto approveBooking(Long bookingId, Long ownerId, boolean approved) {
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Бронирование не найдено"));
 
-        if (!booking.getItem().getOwner().getId().equals(ownerId)) {
-            throw new AccessDeniedException("Только владелец вещи может подтверждать бронирование");
+        boolean userExists = userRepository.existsById(ownerId);
+
+        if (!userExists || !booking.getItem().getOwner().getId().equals(ownerId)) {
+            throw new ValidationException("Только владелец вещи может подтверждать бронирование");
         }
+
 
         if (booking.getStatus() != BookingStatus.WAITING) {
             throw new ValidationException("Бронирование уже обработано");
@@ -85,7 +88,7 @@ public class BookingServiceIml implements BookingService {
 
         if (!booking.getBooker().getId().equals(userId) &&
                 !booking.getItem().getOwner().getId().equals(userId)) {
-            throw new NotFoundException("Доступ к бронированию запрещен");
+            throw new AccessDeniedException("Доступ к бронированию запрещен");
         }
 
         return BookingMapper.toBookingResponseDto(booking);
@@ -99,33 +102,18 @@ public class BookingServiceIml implements BookingService {
         BookingState bookingState = parseState(state);
         LocalDateTime now = LocalDateTime.now();
 
-        List<Booking> bookings;
-        switch (bookingState) {
-            case ALL:
-                bookings = bookingRepository.findByBookerId(bookerId, sort);
-                break;
-            case CURRENT:
-                bookings = bookingRepository.findByBookerIdAndStartBeforeAndEndAfter(
-                        bookerId, now, now, sort);
-                break;
-            case PAST:
-                bookings = bookingRepository.findByBookerIdAndEndBefore(bookerId, now, sort);
-                break;
-            case FUTURE:
-                bookings = bookingRepository.findByBookerIdAndStartAfter(bookerId, now, sort);
-                break;
-            case WAITING:
-                bookings = bookingRepository.findByBookerIdAndStatus(bookerId, BookingStatus.WAITING, sort);
-                break;
-            case REJECTED:
-                bookings = bookingRepository.findByBookerIdAndStatus(bookerId, BookingStatus.REJECTED, sort);
-                break;
-            default:
-                throw new ValidationException("Unknown state: " + state);
-        }
+        List<Booking> bookings = switch (bookingState) {
+            case ALL -> bookingRepository.findByBookerId(bookerId, sort);
+            case CURRENT -> bookingRepository.findByBookerIdAndStartBeforeAndEndAfter(
+                    bookerId, now, now, sort);
+            case PAST -> bookingRepository.findByBookerIdAndEndBefore(bookerId, now, sort);
+            case FUTURE -> bookingRepository.findByBookerIdAndStartAfter(bookerId, now, sort);
+            case WAITING -> bookingRepository.findByBookerIdAndStatus(bookerId, BookingStatus.WAITING, sort);
+            case REJECTED -> bookingRepository.findByBookerIdAndStatus(bookerId, BookingStatus.REJECTED, sort);
+        };
 
         return bookings.stream()
-                .map(BookingMapper::toBookingResponseDto) // Должен быть toBookingResponseDto
+                .map(BookingMapper::toBookingResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -137,30 +125,15 @@ public class BookingServiceIml implements BookingService {
         BookingState bookingState = parseState(state);
         LocalDateTime now = LocalDateTime.now();
 
-        List<Booking> bookings;
-        switch (bookingState) {
-            case ALL:
-                bookings = bookingRepository.findByItemOwnerId(ownerId, sort);
-                break;
-            case CURRENT:
-                bookings = bookingRepository.findByItemOwnerIdAndStartBeforeAndEndAfter(
-                        ownerId, now, now, sort);
-                break;
-            case PAST:
-                bookings = bookingRepository.findByItemOwnerIdAndEndBefore(ownerId, now, sort);
-                break;
-            case FUTURE:
-                bookings = bookingRepository.findByItemOwnerIdAndStartAfter(ownerId, now, sort);
-                break;
-            case WAITING:
-                bookings = bookingRepository.findByItemOwnerIdAndStatus(ownerId, BookingStatus.WAITING, sort);
-                break;
-            case REJECTED:
-                bookings = bookingRepository.findByItemOwnerIdAndStatus(ownerId, BookingStatus.REJECTED, sort);
-                break;
-            default:
-                throw new ValidationException("Unknown state: " + state);
-        }
+        List<Booking> bookings = switch (bookingState) {
+            case ALL -> bookingRepository.findByItemOwnerId(ownerId, sort);
+            case CURRENT -> bookingRepository.findByItemOwnerIdAndStartBeforeAndEndAfter(
+                    ownerId, now, now, sort);
+            case PAST -> bookingRepository.findByItemOwnerIdAndEndBefore(ownerId, now, sort);
+            case FUTURE -> bookingRepository.findByItemOwnerIdAndStartAfter(ownerId, now, sort);
+            case WAITING -> bookingRepository.findByItemOwnerIdAndStatus(ownerId, BookingStatus.WAITING, sort);
+            case REJECTED -> bookingRepository.findByItemOwnerIdAndStatus(ownerId, BookingStatus.REJECTED, sort);
+        };
 
         return bookings.stream()
                 .map(BookingMapper::toBookingResponseDto)
