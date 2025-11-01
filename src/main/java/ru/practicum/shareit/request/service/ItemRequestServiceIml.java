@@ -1,81 +1,120 @@
 package ru.practicum.shareit.request.service;
 
+import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.mapper.ItemMapper;
+import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.item.repository.ItemRepository;
 import ru.practicum.shareit.request.dto.ItemRequestDto;
 import ru.practicum.shareit.request.mapper.ItemRequestMapper;
 import ru.practicum.shareit.request.model.ItemRequest;
+import ru.practicum.shareit.request.repository.ItemRequestRepository;
 import ru.practicum.shareit.user.model.User;
-import ru.practicum.shareit.user.service.UserService;
+import ru.practicum.shareit.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ItemRequestServiceIml implements ItemRequestService {
-    private final Map<Long, ItemRequest> itemRequests = new HashMap<>();
-    private final AtomicLong idCounter = new AtomicLong(1);
-    private final UserService userService;
+    private final ItemRequestRepository itemRequestRepository;
+    private final UserRepository userRepository;
+    private final ItemRepository itemRepository;
 
     @Override
     public ItemRequestDto createRequest(ItemRequestDto itemRequestDto, Long requestorId) {
         if (itemRequestDto.getDescription() == null || itemRequestDto.getDescription().isBlank()) {
-            throw new IllegalArgumentException("Описание запроса не может быть пустым");
+            throw new ValidationException("Описание запроса не может быть пустым");
         }
 
-        User requestor = userService.getUserEntityById(requestorId);
+        User requestor = userRepository.findById(requestorId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         ItemRequest itemRequest = ItemRequestMapper.toItemRequest(itemRequestDto, requestor);
-        itemRequest.setId(idCounter.getAndIncrement());
         itemRequest.setCreated(LocalDateTime.now());
 
-        itemRequests.put(itemRequest.getId(), itemRequest);
-        return ItemRequestMapper.toItemRequestDto(itemRequest);
+        ItemRequest savedRequest = itemRequestRepository.save(itemRequest);
+        return ItemRequestMapper.toItemRequestDto(savedRequest, Collections.emptyList());
     }
 
     @Override
     public List<ItemRequestDto> getAllRequestsByRequestor(Long requestorId) {
-        userService.getUserEntityById(requestorId);
+        userRepository.findById(requestorId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-        return itemRequests.values().stream()
-                .filter(request -> request.getRequestor().getId().equals(requestorId))
-                .sorted(Comparator.comparing(ItemRequest::getCreated).reversed())
-                .map(ItemRequestMapper::toItemRequestDto)
+        List<ItemRequest> requests = itemRequestRepository.findByRequestorIdOrderByCreatedDesc(requestorId);
+        List<Long> requestIds = requests.stream().map(ItemRequest::getId).collect(Collectors.toList());
+
+        Map<Long, List<ItemDto>> itemsByRequest = getItemsByRequestIds(requestIds);
+
+        return requests.stream()
+                .map(request -> ItemRequestMapper.toItemRequestDto(
+                        request,
+                        itemsByRequest.getOrDefault(request.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<ItemRequestDto> getAllRequests(Long userId, int from, int size) {
-        userService.getUserEntityById(userId);
+        userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         if (from < 0 || size <= 0) {
-            throw new IllegalArgumentException("Параметры пагинации должны быть from >= 0 и size > 0");
+            throw new ValidationException("Параметры пагинации должны быть from >= 0 и size > 0");
         }
 
-        return itemRequests.values().stream()
-                .filter(request -> !request.getRequestor().getId().equals(userId))
-                .sorted(Comparator.comparing(ItemRequest::getCreated).reversed())
-                .skip(from)
-                .limit(size)
-                .map(ItemRequestMapper::toItemRequestDto)
+        Pageable pageable = PageRequest.of(from / size, size);
+        List<ItemRequest> requests = itemRequestRepository.findByRequestorIdNotOrderByCreatedDesc(userId, pageable);
+        List<Long> requestIds = requests.stream().map(ItemRequest::getId).collect(Collectors.toList());
+
+        Map<Long, List<ItemDto>> itemsByRequest = getItemsByRequestIds(requestIds);
+
+        return requests.stream()
+                .map(request -> ItemRequestMapper.toItemRequestDto(
+                        request,
+                        itemsByRequest.getOrDefault(request.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 
     @Override
     public ItemRequestDto getRequestById(Long requestId, Long userId) {
-        userService.getUserEntityById(userId);
+        userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-        ItemRequest itemRequest = itemRequests.get(requestId);
-        if (itemRequest == null) {
-            throw new RuntimeException("Запрос не найден");
+        ItemRequest itemRequest = itemRequestRepository.findById(requestId)
+                .orElseThrow(() -> new NotFoundException("Запрос не найден"));
+
+        List<ItemDto> items = getItemsByRequestId(requestId);
+
+        return ItemRequestMapper.toItemRequestDto(itemRequest, items);
+    }
+
+    private Map<Long, List<ItemDto>> getItemsByRequestIds(List<Long> requestIds) {
+        if (requestIds.isEmpty()) {
+            return Collections.emptyMap();
         }
 
-        return ItemRequestMapper.toItemRequestDto(itemRequest);
+        List<Item> items = itemRepository.findByRequestIdIn(requestIds);
+        return items.stream()
+                .collect(Collectors.groupingBy(
+                        Item::getRequestId,
+                        Collectors.mapping(ItemMapper::toItemDto, Collectors.toList())
+                ));
+    }
+
+    private List<ItemDto> getItemsByRequestId(Long requestId) {
+        List<Item> items = itemRepository.findByRequestId(requestId);
+        return items.stream()
+                .map(ItemMapper::toItemDto)
+                .collect(Collectors.toList());
     }
 }

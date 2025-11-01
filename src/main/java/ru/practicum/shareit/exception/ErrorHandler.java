@@ -1,9 +1,13 @@
 package ru.practicum.shareit.exception;
 
+import jakarta.validation.ValidationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class ErrorHandler {
@@ -17,11 +21,6 @@ public class ErrorHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleIllegalArgumentException(IllegalArgumentException e) {
-        if (e.getMessage() != null &&
-                (e.getMessage().contains("уже существует") ||
-                        e.getMessage().contains("email") && e.getMessage().contains("существует"))) {
-            throw new ConflictException(e.getMessage());
-        }
         return new ErrorResponse(e.getMessage());
     }
 
@@ -35,5 +34,43 @@ public class ErrorHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflictException(ConflictException e) {
         return new ErrorResponse(e.getMessage());
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleValidationException(ValidationException e) {
+        return new ErrorResponse(e.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        String errorMessage = "Ошибка валидации";
+        if (e.getBindingResult().hasFieldErrors()) {
+            errorMessage = e.getBindingResult().getFieldErrors().stream()
+                    .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                    .collect(Collectors.joining("; "));
+        }
+        return new ErrorResponse(errorMessage);
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleDataIntegrityViolationException(
+            org.springframework.dao.DataIntegrityViolationException e) {
+        return new ErrorResponse("Нарушение целостности данных: " + e.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleAccessDeniedException(final AccessDeniedException e) {
+        return new ErrorResponse(e.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorResponse handleException(Exception e) {
+        e.printStackTrace();
+        return new ErrorResponse("Внутренняя ошибка сервера: " + e.getClass().getSimpleName() + ": " + e.getMessage());
     }
 }
