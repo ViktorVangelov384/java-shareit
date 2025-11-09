@@ -37,7 +37,9 @@ class ItemRequestDtoJsonTest {
 
     @Test
     void testDeserialize() throws Exception {
-        String content = "{\"id\":1,\"description\":\"Нужна дрель\",\"requestorId\":1,\"created\":\"2024-01-01T12:00:00\",\"items\":[{\"id\":1,\"name\":\"Дрель\",\"description\":\"Мощная\",\"available\":true,\"requestId\":1}]}";
+        String content = "{\"id\":1,\"description\":\"Нужна дрель\",\"requestorId\":1," +
+                "\"created\":\"2024-01-01T12:00:00\",\"items\":[{\"id\":1," +
+                "\"name\":\"Дрель\",\"description\":\"Мощная\",\"available\":true,\"requestId\":1}]}";
 
         ItemRequestDto result = json.parseObject(content);
 

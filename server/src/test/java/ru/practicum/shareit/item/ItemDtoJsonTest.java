@@ -22,5 +22,22 @@ class ItemDtoJsonTest {
 
         assertThat(result).extractingJsonPathNumberValue("$.id").isEqualTo(1);
         assertThat(result).extractingJsonPathStringValue("$.name").isEqualTo("Дрель");
+        assertThat(result).extractingJsonPathStringValue("$.description").isEqualTo("Описание");
+        assertThat(result).extractingJsonPathBooleanValue("$.available").isEqualTo(true);
+        assertThat(result).extractingJsonPathStringValue("$.requestId").isEqualTo(null);
+    }
+
+    @Test
+    void testDeserialize() throws Exception {
+        String content = "{\"id\":1,\"name\":\"Дрель\"," +
+                "\"description\":\"Описание\",\"available\":true,\"requestId\":null}";
+
+        ItemDto result = json.parseObject(content);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getName()).isEqualTo("Дрель");
+        assertThat(result.getDescription()).isEqualTo("Описание");
+        assertThat(result.getAvailable()).isEqualTo(true);
+        assertThat(result.getRequestId()).isNull();
     }
 }

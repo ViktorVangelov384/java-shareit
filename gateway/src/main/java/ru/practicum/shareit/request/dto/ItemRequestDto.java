@@ -16,6 +16,7 @@ public class ItemRequestDto {
 
     @NotBlank(message = "Описание запроса не может быть пустым")
     private String description;
+
     private Long requestorId;
     private LocalDateTime created;
     private List<Object> items;

@@ -39,7 +39,8 @@ class ItemRequestServiceIntegrationTest {
 
     @Test
     void createRequest_shouldSaveRequestToDatabase() {
-        ItemRequestDto requestDto = new ItemRequestDto(null, "Нужна дрель", null, null, null);
+        ItemRequestDto requestDto = new ItemRequestDto(null,
+                "Нужна дрель", null, null, null);
 
         ItemRequestDto result = itemRequestService.createRequest(requestDto, requestor.getId());
 
@@ -71,7 +72,8 @@ class ItemRequestServiceIntegrationTest {
 
     @Test
     void getAllRequests_shouldReturnPaginatedOtherUsersRequests() {
-        ItemRequest request1 = new ItemRequest(null, "Request 1", requestor, LocalDateTime.now().minusDays(1));
+        ItemRequest request1 = new ItemRequest(null, "Request 1",
+                requestor, LocalDateTime.now().minusDays(1));
         ItemRequest request2 = new ItemRequest(null, "Request 2", otherUser, LocalDateTime.now());
         itemRequestRepository.saveAll(List.of(request1, request2));
 

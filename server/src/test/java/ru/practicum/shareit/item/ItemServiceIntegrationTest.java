@@ -102,4 +102,25 @@ class ItemServiceIntegrationTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void updateItem_shouldUpdateOnlyProvidedFields() {
+        ItemDto updateDto = new ItemDto(null, "Новое имя", null, null, null);
+
+        ItemDto result = itemService.updateItem(item.getId(), updateDto, owner.getId());
+
+        assertThat(result.getName()).isEqualTo("Новое имя");
+        assertThat(result.getDescription()).isEqualTo("Мощная дрель");
+        assertThat(result.getAvailable()).isEqualTo(true);
+    }
+
+    @Test
+    void searchItems_withUnavailableItem_shouldNotReturnIt() {
+        item.setAvailable(false);
+        itemRepository.save(item);
+
+        List<ItemDto> result = itemService.searchItems("дрель", 0, 10);
+
+        assertThat(result).isEmpty();
+    }
 }

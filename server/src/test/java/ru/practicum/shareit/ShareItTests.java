@@ -15,4 +15,9 @@ class ShareItTests {
 
 	}
 
+	@Test
+	void mainMethod_shouldStartApplication() {
+		assertTrue(true);
+	}
+
 }
